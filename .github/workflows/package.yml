@@ -1,9 +1,11 @@
-# 把插件打成 .vsix 并作为运行产物上传；只负责打包，不负责发布到插件市场
+# 把插件打成 .vsix 并作为运行产物上传；推送 v* 标签时，再把它发布为 GitHub Release 并附上 .vsix。
+# 不负责发布到插件市场（Open VSX、Visual Studio Marketplace）。
 name: 打包 VSIX
 
 on:
   push:
     branches: [master]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -23,7 +25,6 @@ jobs:
           node-version: 22
 
       - name: 打包 VSIX
-        # 仓库暂无 repository 字段与 LICENSE，vsce 会在日志里给出警告，但不影响打包
         run: npx --yes @vscode/vsce@4 package
 
       - name: 上传 VSIX
@@ -32,3 +33,22 @@ jobs:
           name: auto-backup-vscdb-vsix
           path: '*.vsix'
           if-no-files-found: error
+
+  release:
+    # 仅在推送 v* 标签时运行；只有这个作业拥有写权限，打包作业保持只读
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 下载 VSIX
+        uses: actions/download-artifact@v8
+        with:
+          name: auto-backup-vscdb-vsix
+
+      - name: 创建 Release 并附上 VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # 本作业没有检出仓库，所以用 --repo 指明仓库；--verify-tag 保证只对远端已存在的标签发布
+        run: gh release create "$GITHUB_REF_NAME" *.vsix --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
