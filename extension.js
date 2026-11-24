@@ -8,7 +8,7 @@ const { Worker } = require('node:worker_threads');
 const vscode = require('vscode');
 const { snapshotDatabase } = require('./snapshot');
 const { StatusView } = require('./statusView');
-const { startGuidedRestore } = require('./restoreGuide');
+const { startGuidedRestore, removeStaleRestoreCopy } = require('./restoreGuide');
 
 const DB_FILE_NAME = 'state.vscdb';
 const BACKUP_FILE_NAME = 'state.vscdb.bak';
@@ -22,7 +22,7 @@ let backupPath = null;
 let pendingBackup = Promise.resolve();
 
 /**
- * 激活插件：推导 state.vscdb 与备份文件的路径，注册命令，并在后台线程立即备份一次。
+ * 激活插件：推导 state.vscdb 与备份文件的路径，注册命令，清理过期的还原副本，并在后台线程立即备份一次。
  * 立即备份是为了覆盖上次崩溃、被强制结束等没有触发关闭备份的情况；
  * 放在后台线程是为了库很大时不卡住扩展宿主。
  * @param {import('vscode').ExtensionContext} context 扩展上下文
@@ -38,6 +38,7 @@ function activate(context) {
     vscode.commands.registerCommand(CMD_BACKUP_NOW, () => enqueueBackup(view, true)),
     vscode.commands.registerCommand(CMD_RESTORE, () => startGuidedRestore(sourcePath, backupPath)),
   );
+  removeStaleRestoreCopy(backupPath);
   enqueueBackup(view, false);
 }
 

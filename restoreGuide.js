@@ -1,4 +1,4 @@
-// 职责：「从备份还原」命令的引导流程：把备份复制成不会被备份流程覆盖的还原副本，打开所在目录，并弹出分步说明。
+// 职责：「从备份还原」命令的引导流程：把备份复制成不会被备份流程覆盖的还原副本，打开所在目录，并弹出分步说明；以及清理放弃还原后遗留的过期副本。
 // 不负责：直接替换 state.vscdb（运行中的 Cursor 持有该库，在进程内覆盖会静默损坏数据库，必须等 Cursor 完全退出后由用户手动替换）、校验备份内容。
 'use strict';
 
@@ -9,6 +9,9 @@ const vscode = require('vscode');
 // 还原副本的后缀。备份流程只写 .bak 与 .bak.skipped，不会碰它；
 // 而退出 Cursor 时 .bak 可能被当前的库覆盖，所以还原必须用这份副本
 const RESTORE_SUFFIX = '.restore';
+// 还原副本的保留期限。说明对话框会随 Cursor 退出消失，用户退出后重开窗口再看一遍是正常操作，
+// 所以不能一启动就删，超过这个期限才视为放弃还原
+const STALE_RESTORE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * 「从备份还原」命令入口：生成还原副本、打开所在目录、弹出还原步骤。失败时弹错误通知。
@@ -30,6 +33,26 @@ async function startGuidedRestore(sourcePath, backupPath) {
   }
   await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(restorePath));
   await showSteps(sourcePath, backupPath, restorePath);
+}
+
+/**
+ * 删除创建超过 7 天的遗留还原副本（用户放弃还原后留下的）。失败只写日志、不抛异常。
+ * 按创建时间而不是修改时间判断：复制会保留源文件的修改时间，创建时间才是副本生成的时刻（已实测）。
+ * 取不到创建时间（为 0）时不删，宁可多留一份副本。
+ * @param {string} backupPath 备份文件路径（state.vscdb.bak），还原副本与它同目录
+ */
+function removeStaleRestoreCopy(backupPath) {
+  const restorePath = `${backupPath}${RESTORE_SUFFIX}`;
+  try {
+    const { birthtimeMs } = fs.statSync(restorePath);
+    if (birthtimeMs > 0 && Date.now() - birthtimeMs > STALE_RESTORE_MS) {
+      fs.rmSync(restorePath);
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error(`[autoBackupVscdb] 清理遗留还原副本失败: ${err.message}`);
+    }
+  }
 }
 
 /**
@@ -72,4 +95,4 @@ function showSteps(sourcePath, backupPath, restorePath) {
   return vscode.window.showInformationMessage(`已生成还原副本 ${restoreName}，并打开了所在目录。`, { modal: true, detail });
 }
 
-module.exports = { startGuidedRestore };
+module.exports = { startGuidedRestore, removeStaleRestoreCopy };
