@@ -114,10 +114,13 @@ function runSnapshotInWorker(srcPath, dstPath) {
 }
 
 /**
- * 把备份结果写入扩展宿主日志；只有被保护拦截时才有内容需要记录。
- * @param {{status: string, newSize?: number, oldSize?: number, percent?: number, skippedPath?: string}} result snapshotDatabase 的返回值
+ * 把备份结果写入扩展宿主日志；只有被保护拦截、或备份成功但旧 .skipped 清理失败时才有内容需要记录。
+ * @param {{status: string, newSize?: number, oldSize?: number, percent?: number, skippedPath?: string, skippedCleanupError?: string}} result snapshotDatabase 的返回值
  */
 function logResult(result) {
+  if (result.skippedCleanupError) {
+    console.warn(`[autoBackupVscdb] 备份已更新，但清理旧的 .skipped 失败: ${result.skippedCleanupError}`);
+  }
   if (result.status !== 'skipped') {
     return;
   }
