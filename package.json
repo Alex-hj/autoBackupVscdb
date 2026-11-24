@@ -1,8 +1,8 @@
 {
   "name": "auto-backup-vscdb",
   "displayName": "Cursor 状态库自动备份",
-  "description": "Cursor 启动完成与关闭时自动备份 state.vscdb，始终只保留一份，新备份覆盖旧备份；新快照明显偏小时不覆盖；状态栏显示最近一次备份结果，被拦截或失败时弹出通知。",
-  "version": "0.3.0",
+  "description": "Cursor 启动完成与关闭时自动备份 state.vscdb，始终只保留一份，新备份覆盖旧备份；新快照明显偏小时不覆盖；状态栏显示最近一次备份结果，被拦截或失败时弹出通知；提供「立即备份」与引导式「从备份还原」命令。",
+  "version": "0.4.0",
   "publisher": "zhaohaojie",
   "engines": {
     "vscode": "^1.85.0"
@@ -13,5 +13,17 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./extension.js"
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "autoBackupVscdb.backupNow",
+        "title": "Cursor 状态库备份：立即备份"
+      },
+      {
+        "command": "autoBackupVscdb.restore",
+        "title": "Cursor 状态库备份：从备份还原"
+      }
+    ]
+  }
 }
