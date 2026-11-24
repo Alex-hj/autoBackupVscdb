@@ -56,7 +56,7 @@ Cursor 的状态库使用 SQLite 的 WAL 模式，最新写入的数据可能还
 目前没有发布到扩展市场，从 VSIX 安装：
 
 1. 获得 VSIX（二选一）：
-   - **下载**：到 [Releases](https://github.com/Alex-hj/autoBackupVscdb/releases) 页面下载最新版本附带的 `.vsix`。每推送一个 `v*` 标签（例如 `v0.4.1`），GitHub Actions 会自动打包并创建对应的 Release。
+   - **下载**：到 [Releases](https://github.com/Alex-hj/autoBackupVscdb/releases) 页面下载最新版本附带的 `.vsix`。每推送一个 `v*` 标签（例如 `v0.4.2`），GitHub Actions 会自动打包并创建对应的 Release。
    - **自己打包**：在项目根目录执行 `npx --yes @vscode/vsce package`（需要 Node.js 22 及以上，无需 npm install）。
 2. 安装到 Cursor，然后执行「Developer: Reload Window」：
 
