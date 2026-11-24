@@ -1,0 +1,5 @@
+.specstory/**
+.cursorindexingignore
+.gitignore
+.vscode/**
+*.vsix
