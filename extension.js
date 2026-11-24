@@ -1,8 +1,10 @@
-// 职责：在扩展宿主启动完成与退出（Cursor 打开 / 关闭窗口、退出）时触发备份，并注册「立即备份」「从备份还原」两个命令：
+// 职责：在扩展宿主启动完成与退出（Cursor 打开 / 关闭窗口、退出）时触发备份，并注册「立即备份」「从备份还原」两个命令，
+// 以及供点击状态栏使用的「打开备份目录」内部命令（不出现在命令面板）：
 // 启动与手动备份都在后台线程排队执行并更新状态栏，退出时同步备份。
 // 不负责：快照与覆盖保护的实现（见 snapshot.js）、状态栏与通知的展示（见 statusView.js）、还原流程（见 restoreGuide.js）、定时备份、保留多个历史版本。
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const vscode = require('vscode');
@@ -15,6 +17,8 @@ const BACKUP_FILE_NAME = 'state.vscdb.bak';
 // 命令 id，须与 package.json 的 contributes.commands 一致
 const CMD_BACKUP_NOW = 'autoBackupVscdb.backupNow';
 const CMD_RESTORE = 'autoBackupVscdb.restore';
+// 仅供点击状态栏使用，不在 package.json 里声明，所以不会出现在命令面板
+const CMD_OPEN_BACKUP_DIR = 'autoBackupVscdb.openBackupDir';
 
 let sourcePath = null;
 let backupPath = null;
@@ -32,14 +36,26 @@ function activate(context) {
   const storageDir = path.dirname(context.globalStorageUri.fsPath);
   sourcePath = path.join(storageDir, DB_FILE_NAME);
   backupPath = path.join(storageDir, BACKUP_FILE_NAME);
-  const view = new StatusView(backupPath);
+  const view = new StatusView(backupPath, CMD_OPEN_BACKUP_DIR);
   context.subscriptions.push(
     view,
     vscode.commands.registerCommand(CMD_BACKUP_NOW, () => enqueueBackup(view, true)),
     vscode.commands.registerCommand(CMD_RESTORE, () => startGuidedRestore(sourcePath, backupPath)),
+    vscode.commands.registerCommand(CMD_OPEN_BACKUP_DIR, openBackupDir),
   );
   removeStaleRestoreCopy(backupPath);
   enqueueBackup(view, false);
+}
+
+/**
+ * 在系统文件管理器中打开备份所在目录，供点击状态栏使用。
+ * 备份文件存在时选中它；还不存在（首次备份失败、被手动删除）时改选同目录的 state.vscdb：
+ * revealFileInOS 对不存在的文件在 Windows 上什么都不会打开（Electron 的 ShowItemInFolder 解析不到路径就直接返回）。
+ * @returns {Thenable<unknown>} 命令执行结束后兑现
+ */
+function openBackupDir() {
+  const target = fs.existsSync(backupPath) ? backupPath : sourcePath;
+  return vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(target));
 }
 
 /**

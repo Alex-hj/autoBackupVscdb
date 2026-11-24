@@ -1,5 +1,5 @@
-// 职责：用状态栏常驻显示最近一次备份（启动时自动备份或手动「立即备份」）的结果；备份被保护拦截或失败时弹出通知，手动备份成功时也弹提示。
-// 不负责：备份本身、备份何时触发、关闭窗口时的备份结果（此时窗口正在销毁，无处展示）。
+// 职责：用状态栏常驻显示最近一次备份（启动时自动备份或手动「立即备份」）的结果，点击状态栏项时触发调用方指定的命令（打开备份所在目录）；备份被保护拦截或失败时弹出通知，手动备份成功时也弹提示。
+// 不负责：备份本身、备份何时触发、点击后具体怎么打开目录、关闭窗口时的备份结果（此时窗口正在销毁，无处展示）。
 'use strict';
 
 const path = require('node:path');
@@ -7,6 +7,8 @@ const vscode = require('vscode');
 
 const STATUS_ITEM_ID = 'autoBackupVscdb.status';
 const BYTES_PER_MB = 1024 * 1024;
+// 附在每种状态的悬停提示末尾，告诉用户点击会发生什么
+const CLICK_HINT = '点击打开备份所在目录';
 
 /**
  * 把字节数格式化为 MB 文本，如 "10.1 MB"。
@@ -20,15 +22,25 @@ function toMb(bytes) {
 class StatusView {
   /**
    * 创建状态栏项并立即显示"备份中"；备份结束后由 showResult / showFailure 更新。
-   * 状态栏项带固定 id，用户可在状态栏右键菜单里自行隐藏它。
+   * 状态栏项带固定 id，用户可在状态栏右键菜单里自行隐藏它；点击时执行 clickCommand，各种状态下都可点。
    * @param {string} backupPath 备份文件路径，用于悬停提示
+   * @param {string} clickCommand 点击状态栏项时执行的命令 id
    */
-  constructor(backupPath) {
+  constructor(backupPath, clickCommand) {
     this.backupPath = backupPath;
     this.item = vscode.window.createStatusBarItem(STATUS_ITEM_ID, vscode.StatusBarAlignment.Right, 0);
     this.item.name = 'Cursor 状态库备份';
+    this.item.command = clickCommand;
     this.showRunning();
     this.item.show();
+  }
+
+  /**
+   * 设置悬停提示，并统一在末尾附上点击行为的说明。
+   * @param {string} text 该状态的提示正文
+   */
+  setTooltip(text) {
+    this.item.tooltip = `${text}\n${CLICK_HINT}`;
   }
 
   /**
@@ -37,7 +49,7 @@ class StatusView {
   showRunning() {
     this.item.backgroundColor = undefined;
     this.item.text = '$(sync~spin) 状态库备份中';
-    this.item.tooltip = '正在备份 Cursor 状态库 state.vscdb';
+    this.setTooltip('正在备份 Cursor 状态库 state.vscdb');
   }
 
   /**
@@ -62,8 +74,8 @@ class StatusView {
     const now = new Date();
     const time = now.toLocaleTimeString('zh-CN', { hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
     this.item.text = `$(database) 备份 ${time}`;
-    this.item.tooltip = `最近一次备份成功\n时间：${now.toLocaleString('zh-CN', { hourCycle: 'h23' })}\n`
-      + `大小：${toMb(result.size)}\n文件：${this.backupPath}`;
+    this.setTooltip(`最近一次备份成功\n时间：${now.toLocaleString('zh-CN', { hourCycle: 'h23' })}\n`
+      + `大小：${toMb(result.size)}\n文件：${this.backupPath}`);
     if (notify) {
       vscode.window.showInformationMessage(`Cursor 状态库已备份：${time}，${toMb(result.size)}`);
     }
@@ -79,7 +91,7 @@ class StatusView {
       + `旧备份保持不变，新快照已另存为 ${path.basename(result.skippedPath)}。`;
     this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     this.item.text = '$(warning) 备份被拦截';
-    this.item.tooltip = `${message}\n确认是正常清理的话，删除旧的 ${path.basename(this.backupPath)} 即可接受新的基线。`;
+    this.setTooltip(`${message}\n确认是正常清理的话，删除旧的 ${path.basename(this.backupPath)} 即可接受新的基线。`);
     vscode.window.showWarningMessage(message);
   }
 
@@ -91,7 +103,7 @@ class StatusView {
     const message = `Cursor 状态库备份失败：${err.message}`;
     this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     this.item.text = '$(error) 备份失败';
-    this.item.tooltip = message;
+    this.setTooltip(message);
     vscode.window.showErrorMessage(message);
   }
 
