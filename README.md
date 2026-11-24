@@ -1,5 +1,7 @@
 # Cursor 状态库自动备份
 
+[![打包 VSIX](https://github.com/Alex-hj/autoBackupVscdb/actions/workflows/package.yml/badge.svg)](https://github.com/Alex-hj/autoBackupVscdb/actions/workflows/package.yml)
+
 在 Cursor 启动完成和关闭时，自动备份它的状态库 `state.vscdb`（配置、聊天记录等都存放在这个 SQLite 数据库里）。备份始终只有一份，文件名固定，新备份覆盖旧备份，没有日期后缀。
 
 ## 功能
@@ -53,11 +55,12 @@ Cursor 的状态库使用 SQLite 的 WAL 模式，最新写入的数据可能还
 
 目前没有发布到扩展市场，从 VSIX 安装：
 
-```powershell
-# 在项目根目录打包（需要 Node.js，无需 npm install）
-npx --yes @vscode/vsce package --allow-missing-repository --skip-license
+1. 获得 VSIX（二选一）：
+   - **下载**：到 [Releases](https://github.com/Alex-hj/autoBackupVscdb/releases) 页面下载最新版本附带的 `.vsix`。每推送一个 `v*` 标签（例如 `v0.4.1`），GitHub Actions 会自动打包并创建对应的 Release。
+   - **自己打包**：在项目根目录执行 `npx --yes @vscode/vsce package`（需要 Node.js 22 及以上，无需 npm install）。
+2. 安装到 Cursor，然后执行「Developer: Reload Window」：
 
-# 安装到 Cursor，然后执行「Developer: Reload Window」
+```powershell
 cursor --install-extension auto-backup-vscdb-<版本>.vsix
 ```
 
@@ -66,6 +69,7 @@ cursor --install-extension auto-backup-vscdb-<版本>.vsix
 ## 环境
 
 - 在 Cursor 3.25.6（VS Code 1.128.0，内置 Node.js 24.18.1）上开发并验证，更早的版本未测试。
+- 要求 VS Code 1.101.0 及以上（`package.json` 的 `engines.vscode` 为 `^1.101.0`）。备份依赖 Node 内置的 `node:sqlite`：VS Code 1.100.x 使用的 Electron 34.5.1（Node 20.19.0）没有这个模块，1.101.x 使用的 Electron 35.5.1（Node 22.15.1）上实测可用。
 - 仅在 Windows 上验证过。
 
 ## 代码结构
