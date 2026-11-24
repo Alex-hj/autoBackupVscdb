@@ -1,0 +1,34 @@
+# 把插件打成 .vsix 并作为运行产物上传；只负责打包，不负责发布到插件市场
+name: 打包 VSIX
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v7
+        with:
+          # vsce 4.x 要求 Node >= 22
+          node-version: 22
+
+      - name: 打包 VSIX
+        # 仓库暂无 repository 字段与 LICENSE，vsce 会在日志里给出警告，但不影响打包
+        run: npx --yes @vscode/vsce@4 package
+
+      - name: 上传 VSIX
+        uses: actions/upload-artifact@v7
+        with:
+          name: auto-backup-vscdb-vsix
+          path: '*.vsix'
+          if-no-files-found: error

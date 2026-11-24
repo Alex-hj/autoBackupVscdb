@@ -2,4 +2,5 @@
 .cursorindexingignore
 .gitignore
 .vscode/**
+.github/**
 *.vsix
